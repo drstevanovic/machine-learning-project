@@ -58,7 +58,7 @@ class Classifier:
         # 0.832777777777778     SVC(c>=0.5, g>=5, class_weight='balanced', random_state=1)
 
         indices = y.quality < 5
-        _x, _y = x[indices], y.quality[indices].values.ravel()
+        _x, _y = x[indices], y.quality[indices]
 
         self.lqp = SVC(C=20, kernel='rbf', gamma=10, class_weight='balanced', random_state=1)
         self.lqp.fit(_x, _y)
@@ -66,7 +66,7 @@ class Classifier:
     def _fit_mid_quality_classifier(self, x, y):
         # 0.8680152186397571        KNeighborsClassifier(n_neighbors=66, weights='distance')
         _y = (y.quality == 5) | (y.quality == 6)
-        _y = _y.values.ravel()
+
         self.mqc = KNeighborsClassifier(n_neighbors=66, weights='distance')
         # print(cross_val_score(self.mqc, x, _y, scoring='f1_micro', cv=5).mean())
         self.mqc.fit(x, _y)
@@ -74,7 +74,7 @@ class Classifier:
     def _fit_mid_quality_predictor(self, x, y):
         # RES: 0.7722504230118444       KNeighborsClassifier(n_neighbors=65, weights='distance')
         indices = (y.quality == 5) | (y.quality == 6)
-        _x, _y = x[indices], y.quality[indices].values.ravel()
+        _x, _y = x[indices], y.quality[indices]
 
         self.mqp = KNeighborsClassifier(n_neighbors=65, weights='distance')
         # print(cross_val_score(self.mqp, _x, _y, scoring='f1_micro', cv=5).mean())
@@ -83,7 +83,7 @@ class Classifier:
     def _fit_high_quality_classifier(self, x, y):
         # 0.9039156206415621        KNeighborsClassifier(n_neighbors=70, weights='distance')
         # RandomForestClassifier(n_estimators=15, max_depth=20, max_features=0.8, random_state=1)
-        _y = (y.quality > 6).values.ravel()
+        _y = (y.quality > 6)
 
         self.hqc = RandomForestClassifier(n_estimators=15, max_depth=20, max_features=0.8, random_state=1)
         self.hqc.fit(x, _y)
@@ -91,8 +91,8 @@ class Classifier:
     def _fit_high_quality_predictor(self, x, y):
         # RES: 0.932172531769306        KNearestNeigbors(n_neighbors>8, weights='distance')
         # RES: 0.932172531769306        SVC(C=1, gamma=20, class_weight='balanced', random_state=1)
-        indices = (y.quality > 6)
-        _x, _y = x[indices], y.quality[indices].values.ravel()
+        indices = y.quality > 6
+        _x, _y = x[indices], y.quality[indices]
         self.hqp = SVC(C=1, gamma=20, class_weight='balanced', random_state=1)
         # print(cross_val_score(self.hqp, _x, _y, scoring='f1_micro', cv=5).mean())
         self.hqp.fit(_x, _y)

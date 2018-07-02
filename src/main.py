@@ -1,3 +1,5 @@
+import warnings
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,6 +13,13 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import *
+
+
+def warn(*args, **kwargs):
+    pass
+
+
+warnings.warn = warn
 
 
 def read_file(file):
@@ -28,25 +37,13 @@ def read_file(file):
         'density',  # -0.19
         'chlorides',  # -0.13
         'fixed acidity',  # 0.11
-        'free sulfur dioxide',  # -0.058
-        'pH',  # -0.052
-        'residual sugar'  # -0.0004
-    ]
-
-    feature_columns = [
-        'alcohol',  # 0.49
-        'volatile acidity',  # -0.38
-        'sulphates',  # 0.27
-        'citric acid',  # 0.23
-        'total sulfur dioxide',  # -0.19
-        'density',  # -0.19
-        'chlorides',  # -0.13
-        'fixed acidity'  # 0.11
+        # 'free sulfur dioxide',  # -0.058
+        # 'pH',  # -0.052
+        # 'residual sugar'  # -0.0004
     ]
 
     data = pd.read_csv(file)
     x = data[feature_columns]
-    # x = data[ [*feature_columns, 'quality'] ]
     y = data[["quality"]]
     return x, y
 
@@ -98,23 +95,48 @@ def try_rf(x, y):
     print(max(scores))
 
 
+def train_model(train_path):
+    x, y = read_file(train_path)
+    x_scaler = StandardScaler()
+    x_scaled = x_scaler.fit_transform(x)
+    x_scaled = pd.DataFrame(data=x_scaled, columns=x.keys())
+
+    cs = [1, 2, 5, 10, 20, 50, 100, 1000, 50000]
+    gammas = [0.1, 0.5, 1, 2, 10, 100, 1000]
+
+    results = []
+    for c in cs[3:]:
+        for gamma in gammas:
+            cls = Classifier(SVC(C=c, gamma=gamma, random_state=1, class_weight='balanced'))
+
+            kfold = StratifiedKFold(n_splits=6, shuffle=True, random_state=1)
+            scores = []
+            for train_index, test_index in kfold.split(x_scaled, y):
+                x_train, x_test = x.loc[train_index], x.loc[test_index]
+                y_train, y_test = y.loc[train_index], y.loc[test_index]
+                cls.fit(x_train, y_train)
+                y_pred = cls.predict(x_test)
+                scores.append(f1_score(y_test, y_pred, average='micro'))
+
+            print("C:", c, "gamma:", gamma, "score:", np.mean(scores))
+            results.append(np.mean(scores))
+    print(max(results))
+
+
 def test_model(train_path, test_path):
     x, y = read_file(train_path)
     x_scaler = StandardScaler()
     x_scaled = x_scaler.fit_transform(x)
     x_scaled = pd.DataFrame(data=x_scaled, columns=x.keys())
 
-    cls = Classifier(SVC(C=1000, gamma=0.01))
+    x_test, y_test = read_file(test_path)
+    x_test_scaled = x_scaler.transform(x_test)
+    x_test_scaled = pd.DataFrame(data=x_test_scaled, columns=x_test.keys())
 
-    kfold = StratifiedKFold(n_splits=6, shuffle=True, random_state=1)
-    for train_index, test_index in kfold.split(x_scaled, y):
-        x_train, x_test = x.loc[train_index], x.loc[test_index]
-        y_train, y_test = y.loc[train_index], y.loc[test_index]
-        cls.fit(x_train, y_train)
-        y_pred = cls.predict(x_test)
-        print(f1_score(y_test, y_pred, average='micro'))
-        return
-
+    cls = Classifier(SVC(C=50, gamma=0.5, class_weight='balanced', random_state=1))
+    cls.fit(x_scaled, y)
+    y_pred = cls.predict(x_test_scaled)
+    print(f1_score(y_test, y_pred, average='micro'))
 
 def do_pca(train_file):
     x, y = read_file(train_file)
@@ -160,8 +182,10 @@ def main():
     train_path = '../data/train.csv'
     test_path = '../data/test.csv'
 
-    # test_model(train_path, test_path)
-    do_pca(train_path)
+    # train_model(train_path)
+    test_model(train_path, test_path)
+    # do_pca(train_path)
+
 
 if __name__ == '__main__':
     main()
