@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from classifier import Classifier
 from sklearn import preprocessing
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
@@ -46,73 +49,6 @@ def read_file(file):
     # x = data[ [*feature_columns, 'quality'] ]
     y = data[["quality"]]
     return x, y
-
-
-# Random forest
-def low_quality_classifier(x, y):
-    # RES:0.9590620641562065    RandomForestClassifier(n_estimators=15, max_depth=5, max_features=0.9, random_state=1)
-
-    print("LOW QUALITY CLASSIFIER")
-
-    y = y.quality < 5
-
-    cls = RandomForestClassifier(n_estimators=15, max_depth=5, max_features=0.9, random_state=1)
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
-
-
-# SVC
-def low_quality_predictor(x, y):
-    # 0.832777777777778     SVC(c>=0.5, g>=5, class_weight='balanced', random_state=1)
-    print("LOW QUALITY PREDICTOR")
-    indices = y.quality < 5
-    x, y = x[indices], y.quality[indices]
-
-    cls = SVC(C=20, kernel='rbf', gamma=10, class_weight='balanced', random_state=1)
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
-
-
-# KNN
-def mid_quality_classifier(x, y):
-    # 0.8680152186397571        KNeighborsClassifier(n_neighbors=66, weights='distance')
-    print("MID QUALITY CLASSIFIER")
-    y = (y.quality == 5) | (y.quality == 6)
-
-    cls = KNeighborsClassifier(n_neighbors=66, weights='distance')
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
-
-
-# KNN
-def mid_quality_predictor(x, y):
-    # RES: 0.7722504230118444       KNeighborsClassifier(n_neighbors=65, weights='distance')
-    print("MID QUALITY PREDICTOR")
-    indices = (y.quality == 5) | (y.quality == 6)
-    x, y = x[indices], y.quality[indices]
-
-    cls = KNeighborsClassifier(n_neighbors=65, weights='distance')
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
-
-
-# Random forest
-def high_quality_classifier(x, y):
-    # 0.9039156206415621        KNeighborsClassifier(n_neighbors=70, weights='distance')
-    # RandomForestClassifier(n_estimators=15, max_depth=20, max_features=0.8, random_state=1)
-    print("HIGH QUALITY CLASSIFIER")
-    y = (y.quality > 6)
-
-    cls = RandomForestClassifier(n_estimators=15, max_depth=20, max_features=0.8, random_state=1)
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
-
-
-# SVC
-def high_quality_predictor(x, y):
-    # RES: 0.932172531769306        KNearestNeigbors(n_neighbors>8, weights='distance')
-    # RES: 0.932172531769306        SVC(C=1, gamma=20, class_weight='balanced', random_state=1)
-    print("HIGH QUALITY PREDICTOR")
-    indices = y.quality > 6
-    x, y = x[indices], y.quality[indices]
-
-    cls = SVC(C=1, gamma=20, class_weight='balanced', random_state=1)
-    print(cross_val_score(cls, x, y, scoring='f1_micro', cv=5).mean())
 
 
 def try_svc(x, y):
@@ -162,18 +98,22 @@ def try_rf(x, y):
     print(max(scores))
 
 
-def test_model(train_path):
+def test_model(train_path, test_path):
     x, y = read_file(train_path)
-
     x_scaler = StandardScaler()
-    x = x_scaler.fit_transform(x)
+    x_scaled = x_scaler.fit_transform(x)
+    x_scaled = pd.DataFrame(data=x_scaled, columns=x.keys())
 
-    low_quality_classifier(x, y)
-    low_quality_predictor(x, y)
-    mid_quality_classifier(x, y)
-    mid_quality_predictor(x, y)
-    high_quality_classifier(x, y)
-    high_quality_predictor(x, y)
+    cls = Classifier(SVC(C=1000, gamma=0.01))
+
+    kfold = StratifiedKFold(n_splits=6, shuffle=True, random_state=1)
+    for train_index, test_index in kfold.split(x_scaled, y):
+        x_train, x_test = x.loc[train_index], x.loc[test_index]
+        y_train, y_test = y.loc[train_index], y.loc[test_index]
+        cls.fit(x_train, y_train)
+        y_pred = cls.predict(x_test)
+        print(f1_score(y_test, y_pred, average='micro'))
+        return
 
 
 def do_pca(train_file):
@@ -220,8 +160,8 @@ def main():
     train_path = '../data/train.csv'
     test_path = '../data/test.csv'
 
-    test_model(train_path)
-
+    # test_model(train_path, test_path)
+    do_pca(train_path)
 
 if __name__ == '__main__':
     main()
