@@ -1,4 +1,8 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from sklearn import preprocessing
+from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
@@ -39,6 +43,7 @@ def read_file(file):
 
     data = pd.read_csv(file)
     x = data[feature_columns]
+    # x = data[ [*feature_columns, 'quality'] ]
     y = data[["quality"]]
     return x, y
 
@@ -163,17 +168,58 @@ def test_model(train_path):
     x_scaler = StandardScaler()
     x = x_scaler.fit_transform(x)
 
-    # low_quality_classifier(x, y)
-    # low_quality_predictor(x, y)
-    # mid_quality_classifier(x, y)
-    # mid_quality_predictor(x, y)
-    # high_quality_classifier(x, y)
+    low_quality_classifier(x, y)
+    low_quality_predictor(x, y)
+    mid_quality_classifier(x, y)
+    mid_quality_predictor(x, y)
+    high_quality_classifier(x, y)
     high_quality_predictor(x, y)
+
+
+def do_pca(train_file):
+    x, y = read_file(train_file)
+
+    # First center and scale the data
+    scaled_data = preprocessing.scale(x)  # scale funkcija ocekuje da torke budu u redovima, ne kolonama
+
+    pca = PCA()  # create a PCA object
+    pca.fit(scaled_data)  # do the math
+    pca_data = pca.transform(scaled_data)  # get PCA coordinates for scaled_data
+    print(pca_data)
+
+    # The following code constructs the Scree plot
+    per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
+    labels = ['PC' + str(x) for x in range(1, len(per_var) + 1)]
+
+    plt.bar(x=range(1, len(per_var) + 1), height=per_var, tick_label=labels)
+    plt.ylabel('Percentage of Explained Variance')
+    plt.xlabel('Principal Component')
+    plt.title('Scree Plot')
+    plt.show()
+
+    # Determine which vine properties had the biggest influence on PC1
+    ## get the name of the top 10 measurements (vine properties) that contribute
+    ## most to pc1.
+    ## first, get the loading scores
+    loading_scores = pd.Series(pca.components_[0],
+                               index=['fixed acidity', 'volatile acidity', 'citric acid', 'residual sugar', 'chlorides',
+                                      'free sulfur dioxide',
+                                      'total sulfur dioxide', 'density', 'pH', 'sulphates', 'alcohol'])
+    ## now sort the loading scores based on their magnitude
+    sorted_loading_scores = loading_scores.abs().sort_values(ascending=False)
+
+    # get the names of the top 10 vine properties
+    top_10_properties = sorted_loading_scores[0:10].index.values
+
+    ## print the gene names and their scores (and +/- sign)
+    print(loading_scores[top_10_properties])
+    # sa > https://statquest.org/2018/01/08/statquest-pca-in-python/
 
 
 def main():
     train_path = '../data/train.csv'
     test_path = '../data/test.csv'
+
     test_model(train_path)
 
 
