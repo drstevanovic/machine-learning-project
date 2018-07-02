@@ -13,6 +13,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import *
+from sklearn.linear_model import LogisticRegression
 
 
 def warn(*args, **kwargs):
@@ -101,9 +102,28 @@ def train_model(train_path):
     x_scaled = x_scaler.fit_transform(x)
     x_scaled = pd.DataFrame(data=x_scaled, columns=x.keys())
 
+
+    results = []
+    n_neighbors = [3, 5, 10, 15, 20, 50, 100, 200]
+    for n in n_neighbors:
+        for w in ['uniform', 'distance']:
+            cls = Classifier(KNeighborsClassifier(n_neighbors=n, weights=w))
+            kfold = StratifiedKFold(n_splits=6, shuffle=True, random_state=1)
+            scores = []
+            for train_index, test_index in kfold.split(x_scaled, y):
+                x_train, x_test = x.loc[train_index], x.loc[test_index]
+                y_train, y_test = y.loc[train_index], y.loc[test_index]
+                cls.fit(x_train, y_train)
+                y_pred = cls.predict(x_test)
+                scores.append(f1_score(y_test, y_pred, average='micro'))
+
+            print("N:", n, ", SCORE:", np.mean(scores))
+            results.append(np.mean(scores))
+    print(max(results))
+
+    return
     cs = [1, 2, 5, 10, 20, 50, 100, 1000, 50000]
     gammas = [0.1, 0.5, 1, 2, 10, 100, 1000]
-
     results = []
     for c in cs[3:]:
         for gamma in gammas:
@@ -133,10 +153,12 @@ def test_model(train_path, test_path):
     x_test_scaled = x_scaler.transform(x_test)
     x_test_scaled = pd.DataFrame(data=x_test_scaled, columns=x_test.keys())
 
-    cls = Classifier(SVC(C=50, gamma=0.5, class_weight='balanced', random_state=1))
+    cls = Classifier(KNeighborsClassifier(n_neighbors=5, weights='distance'))
+
     cls.fit(x_scaled, y)
     y_pred = cls.predict(x_test_scaled)
     print(f1_score(y_test, y_pred, average='micro'))
+
 
 def do_pca(train_file):
     x, y = read_file(train_file)
@@ -182,9 +204,8 @@ def main():
     train_path = '../data/train.csv'
     test_path = '../data/test.csv'
 
-    # train_model(train_path)
     test_model(train_path, test_path)
-    # do_pca(train_path)
+    # train_model(train_path)
 
 
 if __name__ == '__main__':
